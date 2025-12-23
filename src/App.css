@@ -1,0 +1,298 @@
+:root {
+  /* --- Color Palette --- */
+  --bg-primary: #121212;
+  /* Deep Dark Background */
+  --bg-secondary: #1E1E1E;
+  /* Card/Panel Background */
+  --bg-tertiary: #2C2C2C;
+  /* Input/Hover Background */
+
+  --text-primary: #E0E0E0;
+  --text-secondary: #A0A0A0;
+
+  --accent-color: #4CAF50;
+  /* Green for Primary Actions */
+  --accent-hover: #43A047;
+
+  --border-color: #333333;
+
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  height: 100vh;
+  overflow: hidden;
+  /* Prevent body scroll */
+}
+
+#root {
+  height: 100%;
+}
+
+/* --- Main Layout (Grid) --- */
+.app-container {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  /* Fixed Sidebar, Flexible Main */
+  grid-template-rows: 1fr 300px;
+  /* Flexible Preview, Fixed Timeline */
+  grid-template-areas:
+    "sidebar preview"
+    "sidebar timeline";
+  height: 100vh;
+  width: 100vw;
+}
+
+/* --- Panels --- */
+.left-panel {
+  grid-area: sidebar;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.right-panel {
+  grid-area: preview;
+  background-color: var(--bg-primary);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Contain the video player */
+}
+
+/* Timeline Panel is handled by .timeline-panel class in Timeline.tsx/css */
+.timeline-panel {
+  grid-area: timeline;
+  /* Styles were added in previous step, ensuring they match here */
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- Typography & Elements --- */
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* --- Inputs & Buttons (Mission Control) --- */
+.input-field {
+  width: 100%;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: none;
+  /* Prevent manual resize breaking layout */
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  border-color: var(--accent-color);
+}
+
+.btn-primary {
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+/* --- Status Banners --- */
+.status-banner {
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+
+.status-success {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: #81c784;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.status-error {
+  background-color: rgba(244, 67, 54, 0.1);
+  color: #e57373;
+  border: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+/* --- Preview Area (Refined) --- */
+.preview-area {
+  flex: 1;
+  background-color: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-color);
+}
+
+.placeholder-preview {
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+/* --- Timeline Specifics (Refined) --- */
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.duration-badge {
+  background-color: var(--bg-tertiary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--accent-color);
+}
+
+.timeline-track-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  position: relative;
+  background-color: #181818;
+  /* Slightly darker than panel */
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.time-ruler {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 24px;
+  width: 100%;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+}
+
+.ruler-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid #444;
+  padding-left: 4px;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  line-height: 24px;
+}
+
+.track-label {
+  position: absolute;
+  left: 8px;
+  top: 36px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  z-index: 10;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.track {
+  position: relative;
+  height: 60px;
+  margin-top: 24px;
+  /* Space for ruler */
+  background-color: #222;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.clip {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  background-color: rgba(76, 175, 80, 0.8);
+  /* Green with opacity */
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.clip:hover {
+  background-color: var(--accent-color);
+  z-index: 5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.clip-name {
+  font-size: 0.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  font-weight: 600;
+}
+
+.clip-duration {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.8);
+}

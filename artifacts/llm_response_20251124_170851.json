@@ -1,0 +1,5 @@
+{
+  "content": "Deleting clips with IDs [uuid] at indices < 2.\nMoving clip with ID [uuid] from index [insert index] to index 0 and setting its start time to 12 seconds.",
+  "timestamp": "2025-11-24T17:08:51.003214+05:30",
+  "type": "response"
+}

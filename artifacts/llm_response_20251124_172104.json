@@ -1,0 +1,5 @@
+{
+  "content": "Adding pacing and removing dead air:\n\n1. Import 5-10 seconds of fast-paced clip.\n2. Insert clip at random 20-30 second intervals within timeline.\n3. Slow down first 10 seconds of all clips by 50%.\n4. Add 2-second gap between each clip.\n5. Remove remaining unused imported clip.",
+  "timestamp": "2025-11-24T17:21:04.137859+05:30",
+  "type": "response"
+}

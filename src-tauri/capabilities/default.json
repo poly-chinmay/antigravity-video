@@ -1,0 +1,37 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "ffprobe",
+          "cmd": "ffprobe",
+          "args": true
+        }
+      ]
+    },
+    "fs:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        "$TEMP/**",
+        "$APPDATA/**",
+        "$RESOURCE/**",
+        "videos/**",
+        "/Users/chinmayaswale/ghost/videos/**",
+        "$HOME/**",
+        "/var/folders/**",
+        "/private/var/folders/**"
+      ]
+    }
+  ]
+}

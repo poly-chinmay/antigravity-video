@@ -1,0 +1,5 @@
+{
+  "content": "Splitting clip with ID [uuid] at index 0 into two parts: saving the first 3-second segment, moving it to the end of the timeline, and deleting the second part.",
+  "timestamp": "2025-11-24T17:10:21.066744+05:30",
+  "type": "response"
+}
