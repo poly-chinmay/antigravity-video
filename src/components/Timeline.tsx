@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import '../styles/timeline.css';
 
 interface Clip {
@@ -12,10 +12,14 @@ interface Clip {
 interface TimelineState {
     clips: Clip[];
     duration: number;
+    playhead_time: number;
+    version: number;
 }
 
 interface TimelineProps {
     timelineState: TimelineState | null;
+    playheadTime: number;
+    onSeek: (time: number) => void;
 }
 
 // Helper to generate a consistent color from a string ID
@@ -31,13 +35,26 @@ function stringToColor(str: string): string {
 
 const PIXELS_PER_SECOND = 50; // Zoom level
 
-const Timeline: React.FC<TimelineProps> = ({ timelineState }) => {
+const Timeline: React.FC<TimelineProps> = ({ timelineState, playheadTime, onSeek }) => {
     // Memoize the total width calculation
     const totalWidth = useMemo(() => {
         if (!timelineState) return 0;
         // Add some padding at the end
         return Math.max(timelineState.duration * PIXELS_PER_SECOND + 200, 1000);
     }, [timelineState]);
+
+    // Handle click on timeline to seek
+    const handleTimelineClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left + e.currentTarget.scrollLeft;
+        const time = x / PIXELS_PER_SECOND;
+
+        // Clamp to valid range
+        const maxTime = timelineState?.duration || 0;
+        const clampedTime = Math.max(0, Math.min(time, maxTime));
+
+        onSeek(clampedTime);
+    }, [timelineState?.duration, onSeek]);
 
     if (!timelineState) {
         return (
@@ -57,7 +74,7 @@ const Timeline: React.FC<TimelineProps> = ({ timelineState }) => {
                 <span>{timelineState.clips.length} Clips • {timelineState.duration.toFixed(2)}s</span>
             </div>
 
-            <div className="timeline-scroll-area">
+            <div className="timeline-scroll-area" onClick={handleTimelineClick}>
                 <div
                     className="timeline-tracks"
                     style={{ width: `${totalWidth}px` }}
@@ -73,6 +90,15 @@ const Timeline: React.FC<TimelineProps> = ({ timelineState }) => {
                                 {i}s
                             </div>
                         ))}
+                    </div>
+
+                    {/* Playhead Cursor */}
+                    <div
+                        className="timeline-playhead"
+                        style={{ left: `${playheadTime * PIXELS_PER_SECOND}px` }}
+                    >
+                        <div className="playhead-handle" />
+                        <div className="playhead-line" />
                     </div>
 
                     {/* Track 0 (Default for now) */}

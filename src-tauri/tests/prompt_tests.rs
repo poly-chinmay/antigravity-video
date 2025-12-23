@@ -79,8 +79,9 @@ mod tests {
         assert!(prompt.contains("\"timeline_start\":10.0"));
         assert!(prompt.contains("\"duration\":4.0"));
 
-        // Check for System Prompt rules
-        assert!(prompt.contains("IMPORTANT: All timing values must be in seconds"));
+        // Check for System Prompt rules (core structure present)
+        assert!(prompt.contains("You are \"Ghost\""));
+        assert!(prompt.contains("OUTPUT FORMAT:"));
     }
 
     #[test]

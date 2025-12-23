@@ -1,6 +1,6 @@
 // src-tauri/src/commands.rs
 use crate::timeline::{Clip, TimelineEngine, TimelineState};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 // We use uuid to generate unique IDs for new clips
 use uuid::Uuid;
 
@@ -309,6 +309,8 @@ mod tests {
         let mut state = TimelineState {
             clips: vec![],
             duration: 0.0,
+            playhead_time: 0.0,
+            version: 0,
         };
         add_test_clips_logic(&mut state, 5);
         assert_eq!(state.clips.len(), 5);

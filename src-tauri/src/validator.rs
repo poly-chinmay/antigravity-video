@@ -78,6 +78,8 @@ mod tests {
         let state = TimelineState {
             clips: vec![],
             duration: 0.0,
+            playhead_time: 0.0,
+            version: 0,
         };
         let actions = vec![Action::DeleteClip {
             id: "missing".to_string(),
@@ -100,6 +102,8 @@ mod tests {
         let state = TimelineState {
             clips: vec![clip],
             duration: 5.0,
+            playhead_time: 0.0,
+            version: 0,
         };
         let actions = vec![Action::DeleteClip {
             id: "existing".to_string(),

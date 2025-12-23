@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
@@ -18,25 +18,32 @@ interface Clip {
 interface TimelineState {
   clips: Clip[];
   duration: number;
+  playhead_time: number;
+  version: number;
 }
 
 function App() {
   const [timelineState, setTimelineState] = useState<TimelineState | null>(null);
-  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  // STEP 1 FIX: playheadTime removed - now derived from timelineState.playhead_time
+  // isPlaying is frontend-only UI state (allowed per execution order)
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
-  // Function to fetch the latest state from the backend
-  async function fetchState() {
+  // STEP 2 FIX: fetchState removed - STATE_UPDATE is the ONLY source of truth
+
+  // Seek to a specific time - STEP 1 FIX: No local state update, backend is source of truth
+  const seekTo = useCallback(async (time: number) => {
+    // Call backend, which will emit STATE_UPDATE with new playhead_time
     try {
-      const state = await invoke<TimelineState>("get_timeline_state");
-      setTimelineState(state);
+      await invoke("seek_timeline", { time });
+      // STATE_UPDATE listener will update timelineState with new playhead_time
     } catch (error) {
-      console.error("Failed to fetch state:", error);
+      console.error("Failed to seek:", error);
     }
-  }
+  }, []);
 
   useEffect(() => {
     console.log("🚀 [Frontend] App mounted. Setting up listeners...");
-    fetchState();
+    // STEP 2 FIX: No fetchState() call - backend emits initial STATE_UPDATE on app ready
 
     const unlisten = listen<{ paths: string[] }>("tauri://drop", (event) => {
       console.log("📂 [Frontend] File dropped:", event.payload.paths);
@@ -52,7 +59,7 @@ function App() {
       }
     });
 
-    // Listen for backend state updates
+    // STEP 2: This is the ONLY way frontend receives state
     const unlistenState = listen<TimelineState>("STATE_UPDATE", (event) => {
       console.log("⚡️ [Frontend] Received STATE_UPDATE event:", event.payload);
       setTimelineState(event.payload);
@@ -80,7 +87,7 @@ function App() {
         console.log("🚀 [Frontend] Invoking import_video...");
         await invoke("import_video", { filePath: selected });
         console.log("✅ [Frontend] Import successful");
-        fetchState();
+        // STEP 2 FIX: No fetchState() - backend emits STATE_UPDATE after import
       }
     } catch (error) {
       console.error("❌ [Frontend] Import failed:", error);
@@ -106,7 +113,7 @@ function App() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '20px', color: 'var(--accent-color)' }}>
           Ghost Engine
         </h1>
-        <MissionControl onPreviewReady={setPreviewPath} />
+        <MissionControl />
 
         <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <h3 style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -123,11 +130,21 @@ function App() {
 
       <div className="right-panel">
         <div className="preview-area">
-          <VideoPlayer clips={timelineState?.clips || []} />
+          <VideoPlayer
+            clips={timelineState?.clips || []}
+            playheadTime={timelineState?.playhead_time ?? 0}
+            onPlayheadChange={seekTo}
+            isPlaying={isPlaying}
+            onPlayingChange={setIsPlaying}
+          />
         </div>
       </div>
 
-      <Timeline timelineState={timelineState} />
+      <Timeline
+        timelineState={timelineState}
+        playheadTime={timelineState?.playhead_time ?? 0}
+        onSeek={seekTo}
+      />
     </div>
   );
 }

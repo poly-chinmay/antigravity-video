@@ -22,3 +22,27 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# OS
+.DS_Store
+
+# Node
+node_modules/
+dist/
+
+
+# Rust / Tauri
+target/
+
+# Local videos & uploads
+videos/
+videos/uploads/
+videos/exports/
+
+# Artifacts / logs
+artifacts/
+
+# Local HTML experiments
+*.html
+
+
+
