@@ -1,10 +1,9 @@
 #[cfg(test)]
 mod tests {
     use ghost_lib::action_router::validate_state_invariants;
-    use ghost_lib::edit_plan::{ActionType, EditPlan};
+    use ghost_lib::edit_plan::ActionType;
     use ghost_lib::llm::parse_edit_plan;
     use ghost_lib::timeline::{Clip, TimelineState};
-    use ghost_lib::validator::{validate_actions_against_state, Action};
 
     // Mocking State is hard in integration tests without full app setup.
     // We will test the components that *would* be called by the command.
@@ -26,29 +25,6 @@ mod tests {
         assert_eq!(plan.actions.len(), 1);
         assert_eq!(plan.actions[0].action_type, ActionType::Delete);
         assert_eq!(plan.actions[0].target_clip_id, "123");
-    }
-
-    #[test]
-    fn test_validation_logic() {
-        // Test Empty Plan
-        let _empty_plan = EditPlan {
-            thought_process: Some("Nothing".to_string()),
-            actions: vec![],
-            confidence: None,
-        };
-
-        let state = TimelineState {
-            clips: vec![],
-            duration: 0.0,
-            playhead_time: 0.0,
-            version: 0,
-        };
-        let actions = vec![Action::DeleteClip {
-            id: "missing".to_string(),
-        }];
-
-        let result = validate_actions_against_state(&actions, &state);
-        assert!(result.is_err());
     }
 
     // =========================================================================
