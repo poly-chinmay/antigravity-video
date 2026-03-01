@@ -42,6 +42,7 @@ mod tests {
             duration: 0.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let actions = vec![Action::DeleteClip {
             id: "missing".to_string(),
@@ -69,6 +70,7 @@ mod tests {
             duration: 0.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_err(), "Should reject negative duration clip");
@@ -87,6 +89,7 @@ mod tests {
             duration: 0.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_err(), "Should reject zero duration clip");
@@ -105,6 +108,7 @@ mod tests {
             duration: 4.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_err(), "Should reject negative start time");
@@ -132,6 +136,7 @@ mod tests {
             duration: 15.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(
@@ -153,6 +158,7 @@ mod tests {
             duration: 10.0,
             playhead_time: 15.0, // INVALID: beyond duration
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_err(), "Should reject playhead beyond duration");
@@ -171,6 +177,7 @@ mod tests {
             duration: 10.0,
             playhead_time: -5.0, // INVALID: negative playhead
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_err(), "Should reject negative playhead");
@@ -189,6 +196,7 @@ mod tests {
             duration: 5.0, // INVALID: should be 10.0
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_err(), "Should reject duration mismatch");
@@ -216,6 +224,7 @@ mod tests {
             duration: 10.0,
             playhead_time: 3.0, // Valid: within [0, 10]
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_ok(), "Valid state should pass all invariants");
@@ -228,6 +237,7 @@ mod tests {
             duration: 0.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let result = validate_state_invariants(&state);
         assert!(result.is_ok(), "Empty timeline should be valid");

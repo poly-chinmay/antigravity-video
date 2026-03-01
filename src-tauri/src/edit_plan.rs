@@ -7,7 +7,7 @@ pub struct EditPlan {
     pub confidence: Option<f32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct EditAction {
     #[serde(rename = "type")]
     pub action_type: ActionType,
@@ -24,7 +24,7 @@ pub enum ActionType {
     Split,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ActionParameters {
     pub new_start_time: Option<f64>,
     pub trim_start_delta: Option<f64>,

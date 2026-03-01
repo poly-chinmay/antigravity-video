@@ -1,5 +1,6 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { useEffect, useState, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { readFile } from "@tauri-apps/plugin-fs";
 
 interface Clip {
     id: string;
@@ -17,51 +18,6 @@ interface VideoPlayerProps {
     onPlayingChange: (playing: boolean) => void;
 }
 
-/**
- * Get the clip that should be active at a given timeline time.
- * Returns the clip where: clip.start <= time < clip.start + clip.duration
- */
-function getActiveClip(clips: Clip[], time: number): Clip | null {
-    // Sort by start time to ensure correct order
-    const sorted = [...clips].sort((a, b) => a.start - b.start);
-    for (const clip of sorted) {
-        if (clip.start <= time && time < clip.start + clip.duration) {
-            return clip;
-        }
-    }
-    return null;
-}
-
-/**
- * VideoPlayer - Timeline-aware video playback
- * 
- * V1 Implementation (Source-Based Preview):
- * - Uses playheadTime to determine which clip should be visible
- * - Switches video source when clip boundaries are crossed
- * - Syncs video.currentTime with timeline position relative to clip start
- * 
- * V1 LIMITATIONS (STEP 6 - Explicit Constraints):
- * CAN DO:
- *   - Play source files at computed offsets
- *   - Switch source when clip boundary crossed
- *   - Show placeholder for gaps
- *   - Pause/play based on UI toggle
- *   - Handle clip deletion (backend clamps playhead)
- * 
- * CANNOT DO (Forbidden in V1):
- *   - Transitions between clips (no transition data in state)
- *   - Effects/filters (no effect pipeline)
- *   - Audio mixing (no audio track model)
- *   - Smooth clip-to-clip handoff (requires pre-render)
- *   - Sub-frame accurate seeking (HTML5 video limitation)
- * 
- * KNOWN V1 LIMITATION - SOURCE OFFSET:
- *   Trimmed/split clips do NOT play from correct source offset.
- *   Clip struct lacks `source_offset` field - would require data model change.
- *   Workaround: Export renders correctly; preview shows wrong segment.
- * 
- * V2 FUTURE: Add source_offset to Clip, backend-rendered preview segments.
- */
 export default function VideoPlayer({
     clips,
     playheadTime,
@@ -69,165 +25,133 @@ export default function VideoPlayer({
     isPlaying,
     onPlayingChange,
 }: VideoPlayerProps) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [currentClipId, setCurrentClipId] = useState<string | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const [previewPath, setPreviewPath] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const lastRequestTime = useRef<number>(0);
+    const debounceTimer = useRef<number | null>(null);
 
-    // Compute active clip based on playhead position
-    const activeClip = getActiveClip(clips, playheadTime);
-
-    // Update video source when active clip changes
+    // FETCH FRAME LOGIC
     useEffect(() => {
-        if (!activeClip) {
-            setCurrentClipId(null);
-            return;
-        }
-
-        // Only reload if clip actually changed
-        if (activeClip.id !== currentClipId) {
-            console.log("🎬 [VideoPlayer] Switching to clip:", activeClip.id);
-            setCurrentClipId(activeClip.id);
-            setError(null);
-
-            if (videoRef.current) {
-                const url = convertFileSrc(activeClip.source_file);
-                console.log("🔗 [VideoPlayer] Loading:", url);
-                videoRef.current.src = url;
-
-                // V1: Compute offset based on timeline position
-                // NOTE: This does NOT account for source_offset (trimmed clips)
-                // Trimmed/split clips will play from wrong source position
-                const offsetInClip = playheadTime - activeClip.start;
-                const clampedOffset = Math.max(0, offsetInClip);
-                console.log(`📍 [VideoPlayer] Seeking to ${clampedOffset.toFixed(2)}s in source (V1: no source_offset)`);
-                videoRef.current.currentTime = clampedOffset;
-
-                if (isPlaying) {
-                    videoRef.current.play().catch(e => console.error("Autoplay failed:", e));
-                }
-            }
-        }
-    }, [activeClip?.id, currentClipId, isPlaying]);
-
-    // Sync video position when playhead changes externally (e.g., seek from timeline)
-    useEffect(() => {
-        if (!activeClip || !videoRef.current) return;
-
-        const offsetInClip = playheadTime - activeClip.start;
-        const currentVideoTime = videoRef.current.currentTime;
-
-        // Only seek if there's a significant difference (avoid micro-corrections during playback)
-        if (Math.abs(currentVideoTime - offsetInClip) > 0.1) {
-            videoRef.current.currentTime = Math.max(0, offsetInClip);
-        }
-    }, [playheadTime, activeClip?.start]);
-
-    // Update playhead during video playback
-    const updatePlayhead = useCallback(() => {
-        if (!videoRef.current || !activeClip || !isPlaying) return;
-
-        const videoTime = videoRef.current.currentTime;
-        const newPlayheadTime = activeClip.start + videoTime;
-
-        // Check if we've reached the end of the current clip
-        if (videoTime >= activeClip.duration) {
-            // Find next clip
-            const nextClip = getActiveClip(clips, activeClip.start + activeClip.duration + 0.01);
-            if (nextClip) {
-                console.log("🎬 [VideoPlayer] Auto-advancing to next clip");
-                onPlayheadChange(nextClip.start);
-            } else {
-                // End of timeline
-                console.log("🛑 [VideoPlayer] End of timeline reached");
-                onPlayingChange(false);
+        const fetchFrame = async () => {
+            const now = Date.now();
+            if (now - lastRequestTime.current < 50) {
+                if (debounceTimer.current) clearTimeout(debounceTimer.current);
+                debounceTimer.current = window.setTimeout(fetchFrame, 50);
                 return;
             }
-        } else {
-            onPlayheadChange(newPlayheadTime);
-        }
+            lastRequestTime.current = now;
 
-        // Continue animation loop
-        if (isPlaying) {
-            animationFrameRef.current = requestAnimationFrame(updatePlayhead);
-        }
-    }, [activeClip, clips, isPlaying, onPlayheadChange, onPlayingChange]);
+            setIsLoading(true);
+            try {
+                const overClip = clips.some(c =>
+                    playheadTime >= c.start && playheadTime < c.start + c.duration
+                );
 
-    // Start/stop playback loop
-    useEffect(() => {
-        if (isPlaying && videoRef.current) {
-            videoRef.current.play().catch(e => console.error("Play failed:", e));
-            animationFrameRef.current = requestAnimationFrame(updatePlayhead);
-        } else if (videoRef.current) {
-            videoRef.current.pause();
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-        }
-
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
+                if (overClip) {
+                    const path = await invoke<string>("render_preview_frame", { timeSecs: playheadTime });
+                    setPreviewPath(path);
+                } else {
+                    setPreviewPath(null);
+                }
+            } catch (err) {
+                console.error("Preview render failed:", err);
+                if (String(err).includes("No clip")) {
+                    setPreviewPath(null);
+                }
+            } finally {
+                setIsLoading(false);
             }
         };
-    }, [isPlaying, updatePlayhead]);
 
-    // Handle play/pause toggle
+        fetchFrame();
+    }, [playheadTime, clips]);
+
+    // RENDER LOGIC (Blob URL Strategy)
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let activeUrl: string | null = null;
+
+        const loadAndDraw = async () => {
+            // 1. Reset/Clear if no path
+            if (!previewPath) {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#333';
+                ctx.font = '24px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText("No Signal", canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            try {
+                // 2. Read file to Blob (Bypass asset:// protocol)
+                console.log("🖼️ [VideoPlayer] Reading Blob:", previewPath);
+                const bytes = await readFile(previewPath);
+                const blob = new Blob([bytes], { type: 'image/png' });
+                activeUrl = URL.createObjectURL(blob);
+
+                // 3. Load Image
+                const img = new Image();
+                img.onload = () => {
+                    console.log("✅ [VideoPlayer] Loaded Blob:", img.width, "x", img.height);
+
+                    const c = canvasRef.current;
+                    if (!c) return;
+                    const context = c.getContext('2d');
+                    if (!context) return;
+
+                    context.fillStyle = '#000';
+                    context.fillRect(0, 0, c.width, c.height);
+
+                    const scale = Math.min(c.width / img.width, c.height / img.height);
+                    const x = (c.width / 2) - (img.width / 2) * scale;
+                    const y = (c.height / 2) - (img.height / 2) * scale;
+
+                    context.drawImage(img, x, y, img.width * scale, img.height * scale);
+                };
+
+                img.onerror = (e) => {
+                    console.error("❌ [VideoPlayer] Blob load failed:", e);
+                };
+
+                img.src = activeUrl;
+            } catch (fsErr) {
+                console.error("❌ [VideoPlayer] FS Read Failed:", fsErr);
+            }
+        };
+
+        loadAndDraw();
+
+        // Cleanup Blob URL
+        return () => {
+            if (activeUrl) {
+                URL.revokeObjectURL(activeUrl);
+            }
+        };
+
+    }, [previewPath]);
+
+    // Controls Logic
     const togglePlay = () => {
         if (clips.length === 0) return;
-
-        // If at end of timeline, restart
         const totalDuration = clips.reduce((max, c) => Math.max(max, c.start + c.duration), 0);
         if (!isPlaying && playheadTime >= totalDuration - 0.1) {
             onPlayheadChange(0);
         }
-
         onPlayingChange(!isPlaying);
     };
 
-    // No clips loaded
     if (clips.length === 0) {
         return (
             <div className="video-player-container placeholder">
                 <div className="placeholder-content">
                     <span style={{ fontSize: "2rem", marginBottom: "10px" }}>🎬</span>
                     <p>No video loaded yet</p>
-                    <small>Import a video to start editing</small>
-                </div>
-            </div>
-        );
-    }
-
-    // Gap in timeline (no clip at current position)
-    if (!activeClip) {
-        return (
-            <div className="video-player-container placeholder">
-                <div className="placeholder-content">
-                    <span style={{ fontSize: "2rem", marginBottom: "10px" }}>⏸️</span>
-                    <p>Gap in timeline</p>
-                    <small>Position: {playheadTime.toFixed(2)}s</small>
-                    <button
-                        className="btn-primary"
-                        onClick={togglePlay}
-                        style={{ marginTop: "10px" }}
-                    >
-                        {isPlaying ? "⏸ Pause" : "▶ Play"}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    // Error state
-    if (error) {
-        return (
-            <div className="video-player-container error">
-                <div className="error-content">
-                    <p>Failed to load video</p>
-                    <small>{error}</small>
-                    <small style={{ marginTop: "10px", opacity: 0.7 }}>
-                        Path: {activeClip.source_file}
-                    </small>
                 </div>
             </div>
         );
@@ -235,40 +159,26 @@ export default function VideoPlayer({
 
     return (
         <div className="video-player-container">
-            <video
-                ref={videoRef}
+            <canvas
+                ref={canvasRef}
+                width={1280}
+                height={720}
                 className="video-element"
-                onError={(e) => {
-                    const target = e.target as HTMLVideoElement;
-                    const mediaError = target.error;
-                    console.error("Video Error Event:", e);
-                    let msg = "Playback failed.";
-                    if (mediaError) {
-                        switch (mediaError.code) {
-                            case MediaError.MEDIA_ERR_ABORTED: msg += " Aborted."; break;
-                            case MediaError.MEDIA_ERR_NETWORK: msg += " Network error."; break;
-                            case MediaError.MEDIA_ERR_DECODE: msg += " Decode error."; break;
-                            case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: msg += " Format not supported."; break;
-                            default: msg += ` Code: ${mediaError.code}`;
-                        }
-                    }
-                    setError(msg);
-                }}
-                onLoadedData={() => setError(null)}
+                style={{ backgroundColor: 'black' }}
             />
 
-            {/* V1 Preview Disclaimer - visible to user */}
+            {isLoading && (
+                <div style={{
+                    position: 'absolute', top: '20px', right: '20px',
+                    width: '10px', height: '10px', borderRadius: '50%',
+                    backgroundColor: 'var(--accent-color)',
+                    boxShadow: '0 0 10px var(--accent-color)'
+                }} />
+            )}
+
             <div className="video-overlay">
                 <span className="video-path">
-                    {activeClip?.source_file?.split(/[/\\]/).pop() ?? "Unknown"}
-                </span>
-                <span className="preview-disclaimer" style={{
-                    fontSize: "0.65rem",
-                    opacity: 0.6,
-                    marginTop: "2px",
-                    display: "block"
-                }}>
-                    Preview is approximate. Export is authoritative.
+                    FFmpeg Preview {isLoading ? "(Rendering...)" : ""}
                 </span>
             </div>
 
@@ -277,7 +187,7 @@ export default function VideoPlayer({
                     {isPlaying ? "⏸" : "▶"}
                 </button>
                 <span className="time-display">
-                    {playheadTime.toFixed(1)}s / {clips.reduce((max, c) => Math.max(max, c.start + c.duration), 0).toFixed(1)}s
+                    {playheadTime.toFixed(2)}s
                 </span>
             </div>
         </div>

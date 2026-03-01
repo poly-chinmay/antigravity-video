@@ -80,6 +80,7 @@ mod tests {
             duration: 0.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let actions = vec![Action::DeleteClip {
             id: "missing".to_string(),
@@ -104,6 +105,7 @@ mod tests {
             duration: 5.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         let actions = vec![Action::DeleteClip {
             id: "existing".to_string(),
