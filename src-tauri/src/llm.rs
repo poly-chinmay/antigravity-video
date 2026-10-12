@@ -1,7 +1,7 @@
 // src-tauri/src/llm.rs
 use crate::edit_plan::EditPlan; // Import EditPlan
 use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use std::fs;
 use std::io::Write;
@@ -31,16 +31,6 @@ pub enum ArtifactType {
     LlmResponse,
     Error,
     ApplyEditPlan { plan: String, result: String },
-}
-
-// The rich metadata we will send back to the frontend
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct LlmResponseMetadata {
-    pub text: String,
-    pub latency_ms: u64,
-    pub char_count: usize,
-    pub truncated: bool,
-    pub artifact_filename: String,
 }
 
 // --- FUNCTIONS ---
@@ -102,7 +92,7 @@ pub fn log_artifact(app_handle: &AppHandle, artifact_type: ArtifactType, content
     #[cfg(not(unix))]
     {
         // Fallback for Windows where mode(0o600) isn't the same
-        let mut file = File::create(&file_path).expect("failed to create artifact file");
+        let mut file = std::fs::File::create(&file_path).expect("failed to create artifact file");
         file.write_all(final_content.as_bytes())
             .expect("failed to write to artifact file");
     }
@@ -212,8 +202,4 @@ pub fn parse_edit_plan(raw: &str) -> Result<EditPlan, LlmParseError> {
     // 2. Parse
     let plan: EditPlan = serde_json::from_str(json_str)?;
     Ok(plan)
-}
-
-pub fn is_valid_uuid(id: &str) -> bool {
-    uuid::Uuid::parse_str(id).is_ok()
 }

@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod tests {
-    use ghost_lib::llm::is_valid_uuid;
     use ghost_lib::prompt::{build_prompt, simplify_timeline_for_prompt};
     use ghost_lib::timeline::{Clip, TimelineEngine};
     use uuid::Uuid;
@@ -82,16 +81,6 @@ mod tests {
         // Check for System Prompt rules (core structure present)
         assert!(prompt.contains("You are \"Ghost\""));
         assert!(prompt.contains("OUTPUT FORMAT:"));
-    }
-
-    #[test]
-    fn test_is_valid_uuid() {
-        let valid = Uuid::new_v4().to_string();
-        assert!(is_valid_uuid(&valid));
-
-        assert!(!is_valid_uuid("not-a-uuid"));
-        assert!(!is_valid_uuid(""));
-        assert!(!is_valid_uuid("12345"));
     }
 
     #[test]
