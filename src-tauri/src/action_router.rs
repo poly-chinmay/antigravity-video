@@ -105,6 +105,9 @@ pub fn run_edit_plan(
     prefs: &State<'_, PreferenceManager>,
     plan: EditPlan,
 ) -> Result<TimelineState, String> {
+    use crate::action_preflight::ActionPreflight;
+    use crate::edit_plan_validator::EditPlanValidator;
+
     println!(
         "🚀 [Backend] Action Router: Executing Edit Plan with {} actions",
         plan.actions.len()
@@ -123,15 +126,44 @@ pub fn run_edit_plan(
         state.duration
     );
 
+    // =========================================================================
+    // PHASE A2: TWO-STAGE VALIDATION
+    // =========================================================================
+
+    // Stage 1: Static Validation (EditPlanValidator)
+    // Validates references exist and bounds are valid
+    println!("🔍 [Validation] Stage 1: Static validation...");
+    if let Err(rejection) = EditPlanValidator::validate_plan(&plan, &state) {
+        let error_msg = format!(
+            "Edit plan rejected (static validation): {}",
+            rejection.user_message()
+        );
+        println!("❌ [Validation] {}", error_msg);
+        println!("   Technical: {}", rejection.technical_message());
+        return Err(error_msg);
+    }
+    println!("✅ [Validation] Stage 1 passed");
+
+    // Stage 2: Simulation Validation (ActionPreflight)
+    // Simulates plan on shadow timeline and validates invariants
+    println!("🔍 [Validation] Stage 2: Preflight simulation...");
+    if let Err(rejection) = ActionPreflight::preflight_plan(&plan, &state) {
+        let error_msg = format!(
+            "Edit plan rejected (preflight simulation): {}",
+            rejection.user_message()
+        );
+        println!("❌ [Validation] {}", error_msg);
+        println!("   Technical: {}", rejection.technical_message());
+        return Err(error_msg);
+    }
+    println!("✅ [Validation] Stage 2 passed - all invariants preserved");
+
+    // =========================================================================
+    // EXECUTION: Both validations passed, safe to mutate real state
+    // =========================================================================
+
     // STEP 3 FIX: Snapshot state BEFORE mutations for rollback capability
     let snapshot = state.clone();
-
-    // 2. Pre-Validation Pass: Check target clips exist
-    for action in &plan.actions {
-        if !state.clips.iter().any(|c| c.id == action.target_clip_id) {
-            return Err(RouterError::ClipNotFound(action.target_clip_id.clone()).to_string());
-        }
-    }
 
     // 3. Execution Pass
     for action in &plan.actions {

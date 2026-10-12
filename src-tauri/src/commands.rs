@@ -311,6 +311,7 @@ mod tests {
             duration: 0.0,
             playhead_time: 0.0,
             version: 0,
+            ..TimelineState::default()
         };
         add_test_clips_logic(&mut state, 5);
         assert_eq!(state.clips.len(), 5);
